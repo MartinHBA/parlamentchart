@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rozdelenie kresiel NRSR</title>
+    <style>
+        body {
+            background-color: #3b3d47;
+            /* Change this to your desired color */
+        }
+    </style>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/item-series.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+</head>
+
+<body>
+
+    <div id="container" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+
+    <script type="text/javascript">
+        // Fetch the CSV data from the files
+        Promise.all([fetch('seats.csv'), fetch('colors.csv')])
+            .then(responses => Promise.all(responses.map(response => response.text())))
+            .then(data => {
+                const [seatData, colorData] = data;
+                const seatRows = seatData.split('\n').slice(1);  // Skip header row
+                const colorRows = colorData.split('\n').slice(1);  // Skip header row
+
+                // Process seat data to count seats per party
+                const partySeats = {};
+                seatRows.forEach(row => {
+                    const columns = row.split(',');
+                    const party = columns[1];
+                    partySeats[party] = (partySeats[party] || 0) + 1;
+                });
+
+                // Process color data to get color per party
+                const partyColors = {};
+                colorRows.forEach(row => {
+                    const columns = row.split(',');
+                    partyColors[columns[0]] = columns[1];
+                    //  console.log(partyColors)
+                });
+
+                // Create series data
+                const seriesData = [];
+                seatRows.forEach(row => {
+                    const columns = row.split(',');
+                    const name = columns[0];
+                    const party = columns[1];
+                    const votes = columns[2];
+                    const existingParty = seriesData.find(item => item.name === party);
+                    if (existingParty) {
+                        existingParty.y += 1;
+                        existingParty.individuals.push({ name, votes });
+                    } else {
+                        seriesData.push({
+                            name: party,
+                            y: 1,
+                            color: partyColors[party.replace(/ /g, '-')],
+                            individuals: [{ name, votes }]
+                        });
+                    }
+                });
+
+                // Create the Highchart
+                Highcharts.chart('container', {
+                    chart: {
+                        type: 'item',
+                        backgroundColor: '#3b3d47'
+                    },
+                    title: {
+                        text: 'Rozdelenie kresiel v NRSR',
+                        style: {
+                            color: '#ffffff',  // Set your desired title color here
+                            fontSize: '24px'   // Optional: Set a specific font size for the title
+                            }
+                    },
+                    xAxis: {
+                        type: 'category'
+                    },
+                    yAxis: {
+                        title: {
+                            text: 'Počet kresiel'
+                        }
+                    },
+                    legend: {
+                        enabled: false
+                    },
+                    series: [{
+                        name: 'Seats',
+                        data: seriesData,
+                        keys: ['name', 'y', 'color'],
+                        center: ['50%', '88%'],
+                        size: '150%',
+                        startAngle: -100,
+                        endAngle: 100,
+                        dataLabels: {
+                            enabled: true,
+                            format: '{point.name}',
+                            style: {
+                                fontSize: '15px'  // Adjust font size here
+                            }
+                        }
+                    }],
+                    tooltip: {
+                        formatter: function () {
+                            let tooltipText = '<b>' + this.point.name + '</b><br>' +
+                                'Kresiel: ' + this.point.y + '<br><br>';
+                            this.point.individuals.forEach(individual => {
+                                tooltipText += individual.name + '<br>';
+                            });
+                            return tooltipText;
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('There has been a problem with your fetch operation:', error);
+            });
+
+    </script>
+
+</body>
